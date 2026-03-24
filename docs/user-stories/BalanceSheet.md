@@ -1,0 +1,3 @@
+For a given date the user might want to see the balance sheet summary, so like the total values in assets, liabilities and equity but they also might want to click into the details and then see what the balance of each asset account is, etc.
+
+Asset accounts might be within a bank account - for example, let's say you have a brokerage account that you use as a savings account. In that brokerage account, you have multiple savings buckets for different goals. For each bucket you have a separate money market fund that you buy. So at any given time, you should be able to see what the state of each savings goal is (aka the balance in a given bucket)

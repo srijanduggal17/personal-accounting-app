@@ -1,0 +1,6 @@
+@startuml
+:User: --> (View Income + Expense Breakdown)
+:User: --> (View Account Balances)
+:User: --> (View Investment Returns)
+:User: --> (Forecast Cash Flow)
+@enduml
