@@ -1,0 +1,18 @@
+{
+    "name": "Ubuntu + PlantUML",
+    "build": {
+        "dockerfile": "Dockerfile"
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "jebbs.plantuml"
+            ],
+            "settings": {
+                "plantuml.jar": "/usr/local/bin/plantuml.jar",
+                "plantuml.render": "Local"
+            }
+        }
+    },
+    "remoteUser": "root"
+}
