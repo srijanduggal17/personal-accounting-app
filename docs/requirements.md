@@ -10,7 +10,7 @@
 ### 2. Transaction Import
 *Derived from: Importing Transactions*
 - Users must be able to import CSV files from external financial institutions.
-- Users must be able to map CSV columns to system fields (date, description, amount).
+- Users must be able to map CSV columns to system fields (date, description, amount). These mappings should be saved and associated to the account that they are imported to
 - Users must be able to specify the sign convention of the amount column (e.g., whether debits are negative or whether separate debit/credit columns are used) at import time.
 - Users must be able to assign imported transactions to a specific account.
 - The system must detect potential duplicate transactions during import (matching on date, amount, and description) and warn the user, allowing them to skip or proceed with importing the duplicate.
