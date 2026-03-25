@@ -1,12 +1,15 @@
 {
-    "name": "Ubuntu + PlantUML",
+    "name": "Ubuntu + PlantUML + Node.js",
     "build": {
         "dockerfile": "Dockerfile"
     },
     "customizations": {
         "vscode": {
             "extensions": [
-                "jebbs.plantuml"
+                "jebbs.plantuml",
+                "dbaeumer.vscode-eslint",
+                "mtxr.sqltools",
+                "qwtel.sqlite-viewer"
             ],
             "settings": {
                 "plantuml.jar": "/usr/local/bin/plantuml.jar",
@@ -14,5 +17,8 @@
             }
         }
     },
+    "forwardPorts": [
+        3000
+    ],
     "remoteUser": "root"
 }
