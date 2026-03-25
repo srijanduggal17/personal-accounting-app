@@ -1,0 +1,77 @@
+.app {
+  padding: 1.5rem 1.25rem 2rem;
+  text-align: left;
+}
+
+.app-header h1 {
+  margin: 0 0 1rem;
+  font-size: 1.75rem;
+}
+
+.app-main {
+  max-width: 48rem;
+}
+
+.status {
+  margin: 0;
+  color: var(--text);
+}
+
+.status-error {
+  color: #b91c1c;
+}
+
+@media (prefers-color-scheme: dark) {
+  .status-error {
+    color: #fca5a5;
+  }
+}
+
+.account-tree,
+.account-children {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.account-children {
+  margin: 0.35rem 0 0.5rem 1rem;
+  padding-left: 0.75rem;
+  border-left: 1px solid var(--border);
+}
+
+.account-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.75rem;
+  padding: 0.35rem 0;
+}
+
+.account-name {
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.account-meta {
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+.account-balance {
+  font-size: 0.85rem;
+  font-family: var(--mono);
+  color: var(--text);
+  margin-left: auto;
+}
+
+@media (max-width: 640px) {
+  .account-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .account-balance {
+    margin-left: 0;
+  }
+}
