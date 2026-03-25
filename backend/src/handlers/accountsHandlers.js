@@ -4,23 +4,75 @@ const {
   getAccountById,
   deleteAccountById,
   updateAccountById,
-  UPDATEABLE_COLUMNS,
 } = require('../queries/accountsQueries');
 
-const CATEGORIES = new Set([
-  'Asset',
-  'Liability',
-  'Equity',
-  'Revenue',
-  'Expense',
-]);
+const { getComponentSchema } = require('../openapi/openapiLoader');
 
-const ACCOUNT_TYPES = new Set(['Group', 'Ledger']);
+function requireOpenApiValue(value, message) {
+  if (value === undefined || value === null) {
+    throw new Error(message);
+  }
+  return value;
+}
 
-const DEFAULT_ACCOUNT_TYPE = 'Ledger';
-const DEFAULT_IS_ACTIVE = 1;
-const DEFAULT_STARTING_BALANCE = 0;
-const DEFAULT_STARTING_BALANCE_DATE = '2000-01-01';
+const accountCreateSchema = getComponentSchema('AccountCreateRequest');
+const accountUpdateSchema = getComponentSchema('AccountUpdateRequest');
+
+const CATEGORY_ENUM = requireOpenApiValue(
+  accountCreateSchema?.properties?.category?.enum,
+  'OpenAPI schema missing: AccountCreateRequest.properties.category.enum',
+);
+const ACCOUNT_TYPE_ENUM = requireOpenApiValue(
+  accountCreateSchema?.properties?.account_type?.enum,
+  'OpenAPI schema missing: AccountCreateRequest.properties.account_type.enum',
+);
+
+const DEFAULT_ACCOUNT_TYPE = requireOpenApiValue(
+  accountCreateSchema?.properties?.account_type?.default,
+  'OpenAPI schema missing: AccountCreateRequest.properties.account_type.default',
+);
+
+const IS_ACTIVE_INTEGER_ENUM = requireOpenApiValue(
+  accountCreateSchema?.properties?.is_active?.oneOf?.find((s) => s.type === 'integer')?.enum,
+  'OpenAPI schema missing: AccountCreateRequest.properties.is_active.oneOf[integer].enum',
+);
+
+const DEFAULT_IS_ACTIVE = requireOpenApiValue(
+  accountCreateSchema?.properties?.is_active?.default,
+  'OpenAPI schema missing: AccountCreateRequest.properties.is_active.default',
+);
+
+const DEFAULT_STARTING_BALANCE = requireOpenApiValue(
+  accountCreateSchema?.properties?.starting_balance?.default,
+  'OpenAPI schema missing: AccountCreateRequest.properties.starting_balance.default',
+);
+
+const DEFAULT_STARTING_BALANCE_DATE = requireOpenApiValue(
+  accountCreateSchema?.properties?.starting_balance_date?.default,
+  'OpenAPI schema missing: AccountCreateRequest.properties.starting_balance_date.default',
+);
+
+const STARTING_BALANCE_DATE_PATTERN = requireOpenApiValue(
+  accountCreateSchema?.properties?.starting_balance_date?.pattern,
+  'OpenAPI schema missing: AccountCreateRequest.properties.starting_balance_date.pattern',
+);
+const STARTING_BALANCE_DATE_RE = new RegExp(STARTING_BALANCE_DATE_PATTERN);
+
+const CATEGORIES = new Set(CATEGORY_ENUM);
+const ACCOUNT_TYPES = new Set(ACCOUNT_TYPE_ENUM);
+const UPDATEABLE_FIELDS = new Set(Object.keys(accountUpdateSchema?.properties ?? {}));
+const IS_ACTIVE_INTEGERS = new Set(IS_ACTIVE_INTEGER_ENUM);
+
+// The handler logic maps `true` -> 1 and `false` -> 0.
+if (!IS_ACTIVE_INTEGERS.has(0) || !IS_ACTIVE_INTEGERS.has(1)) {
+  throw new Error('OpenAPI is_active enum must include 0 and 1 to match server normalization');
+}
+
+const CATEGORY_ENUM_TEXT = Array.from(CATEGORIES).join(', ');
+const ACCOUNT_TYPE_ENUM_TEXT = Array.from(ACCOUNT_TYPES).join(', ');
+const IS_ACTIVE_INTEGERS_TEXT = Array.from(IS_ACTIVE_INTEGERS)
+  .sort((a, b) => a - b)
+  .join(', ');
 
 function badRequest(res, message) {
   return res.status(400).json({ error: message });
@@ -47,7 +99,7 @@ function normalizeIsActive(value) {
   if (value === undefined) return DEFAULT_IS_ACTIVE;
   if (value === true) return 1;
   if (value === false) return 0;
-  if (value === 0 || value === 1) return value;
+  if (typeof value === 'number' && IS_ACTIVE_INTEGERS.has(value)) return value;
   return undefined;
 }
 
@@ -76,7 +128,7 @@ function validateAndBuildRow(body) {
   if (typeof category !== 'string' || !CATEGORIES.has(category)) {
     return {
       error:
-        'category is required and must be one of: Asset, Liability, Equity, Revenue, Expense',
+        `category is required and must be one of: ${CATEGORY_ENUM_TEXT}`,
     };
   }
 
@@ -84,7 +136,7 @@ function validateAndBuildRow(body) {
   if (accountType === undefined) {
     accountType = DEFAULT_ACCOUNT_TYPE;
   } else if (typeof accountType !== 'string' || !ACCOUNT_TYPES.has(accountType)) {
-    return { error: 'account_type must be Group or Ledger' };
+    return { error: `account_type must be one of: ${ACCOUNT_TYPE_ENUM_TEXT}` };
   }
 
   const parentAccountId = normalizeParentAccountId(body.parent_account_id);
@@ -107,7 +159,10 @@ function validateAndBuildRow(body) {
   let startingBalanceDate = body.starting_balance_date;
   if (startingBalanceDate === undefined) {
     startingBalanceDate = DEFAULT_STARTING_BALANCE_DATE;
-  } else if (typeof startingBalanceDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(startingBalanceDate)) {
+  } else if (
+    typeof startingBalanceDate !== 'string' ||
+    !STARTING_BALANCE_DATE_RE.test(startingBalanceDate)
+  ) {
     return { error: 'starting_balance_date must be a string in YYYY-MM-DD form' };
   }
 
@@ -221,7 +276,7 @@ function validateUpdatePatch(body) {
 
   const keys = Object.keys(body).filter((k) => body[k] !== undefined);
   for (const key of keys) {
-    if (!UPDATEABLE_COLUMNS.has(key)) {
+    if (!UPDATEABLE_FIELDS.has(key)) {
       return { error: `Unknown or disallowed field: ${key}` };
     }
   }
@@ -243,8 +298,7 @@ function validateUpdatePatch(body) {
   if (body.category !== undefined) {
     if (typeof body.category !== 'string' || !CATEGORIES.has(body.category)) {
       return {
-        error:
-          'category must be one of: Asset, Liability, Equity, Revenue, Expense',
+        error: `category must be one of: ${CATEGORY_ENUM_TEXT}`,
       };
     }
     patch.category = body.category;
@@ -252,7 +306,7 @@ function validateUpdatePatch(body) {
 
   if (body.account_type !== undefined) {
     if (typeof body.account_type !== 'string' || !ACCOUNT_TYPES.has(body.account_type)) {
-      return { error: 'account_type must be Group or Ledger' };
+      return { error: `account_type must be one of: ${ACCOUNT_TYPE_ENUM_TEXT}` };
     }
     patch.account_type = body.account_type;
   }
@@ -260,7 +314,7 @@ function validateUpdatePatch(body) {
   if (body.is_active !== undefined) {
     const isActive = normalizeIsActive(body.is_active);
     if (isActive === undefined) {
-      return { error: 'is_active must be 0, 1, true, or false' };
+      return { error: `is_active must be ${IS_ACTIVE_INTEGERS_TEXT}, true, or false` };
     }
     patch.is_active = isActive;
   }
@@ -275,7 +329,7 @@ function validateUpdatePatch(body) {
   if (body.starting_balance_date !== undefined) {
     if (
       typeof body.starting_balance_date !== 'string' ||
-      !/^\d{4}-\d{2}-\d{2}$/.test(body.starting_balance_date)
+      !STARTING_BALANCE_DATE_RE.test(body.starting_balance_date)
     ) {
       return { error: 'starting_balance_date must be a string in YYYY-MM-DD form' };
     }

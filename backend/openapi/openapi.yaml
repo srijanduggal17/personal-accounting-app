@@ -1,0 +1,273 @@
+openapi: 3.0.3
+info:
+  title: Personal Accounting API
+  version: 1.0.0
+  description: OpenAPI spec for the backend routes.
+tags:
+  - name: Accounts
+    description: CRUD operations for accounts.
+servers:
+  - url: http://localhost:3000
+
+paths:
+  /accounts:
+    get:
+      tags: [Accounts]
+      summary: List accounts as a tree
+      operationId: listAccounts
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [accounts]
+                properties:
+                  accounts:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AccountTree"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    post:
+      tags: [Accounts]
+      summary: Create an account
+      operationId: createAccount
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AccountCreateRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+        "400":
+          description: Bad request (validation error)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Conflict (e.g., invalid parent_account_id / constraint violation)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /accounts/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: Account id (positive integer)
+        schema:
+          type: integer
+          minimum: 1
+
+    patch:
+      tags: [Accounts]
+      summary: Update an account's name, archive status, starting balance and corresponding date
+      operationId: updateAccount
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AccountUpdateRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+        "400":
+          description: Bad request (validation error)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Conflict (constraint violation)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      tags: [Accounts]
+      summary: Delete an account. Will only work if account has no transactions.
+      operationId: deleteAccount
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad request (invalid id)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Conflict (cannot delete due to foreign-key reference)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+
+    Account:
+      type: object
+      required:
+        - id
+        - name
+        - category
+        - account_type
+        - parent_account_id
+        - is_active
+        - starting_balance
+        - starting_balance_date
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        name:
+          type: string
+          minLength: 1
+        category:
+          type: string
+          enum: [Asset, Liability, Equity, Revenue, Expense]
+        account_type:
+          type: string
+          enum: [Group, Ledger]
+        parent_account_id:
+          type: integer
+          nullable: true
+        is_active:
+          type: integer
+          enum: [0, 1]
+        starting_balance:
+          type: number
+        starting_balance_date:
+          type: string
+          pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    AccountTree:
+      allOf:
+        - $ref: "#/components/schemas/Account"
+        - type: object
+          required: [children]
+          properties:
+            children:
+              type: array
+              items:
+                $ref: "#/components/schemas/AccountTree"
+
+    AccountCreateRequest:
+      type: object
+      required: [name, category]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        category:
+          type: string
+          enum: [Asset, Liability, Equity, Revenue, Expense]
+        account_type:
+          type: string
+          enum: [Group, Ledger]
+          default: Ledger
+        parent_account_id:
+          type: integer
+          nullable: true
+        is_active:
+          description: Accepts 0/1 or boolean; server normalizes to 0/1.
+          default: 1
+          oneOf:
+            - type: integer
+              enum: [0, 1]
+            - type: boolean
+        starting_balance:
+          type: number
+          default: 0
+        starting_balance_date:
+          type: string
+          pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+          default: "2000-01-01"
+
+    AccountUpdateRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        name:
+          type: string
+          minLength: 1
+        is_active:
+          description: Accepts 0/1 or boolean; server normalizes to 0/1.
+          oneOf:
+            - type: integer
+              enum: [0, 1]
+            - type: boolean
+        starting_balance:
+          type: number
+        starting_balance_date:
+          type: string
+          pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+

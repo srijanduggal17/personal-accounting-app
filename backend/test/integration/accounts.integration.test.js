@@ -59,14 +59,14 @@ test('accounts API integration flow', async () => {
 
     await agent
       .patch(`/accounts/${accountId}`)
-      .send({ name: 'Savings', category: 'Liability' })
+      .send({ name: 'Savings' })
       .expect(200);
 
     {
       const res = await agent.get('/accounts').expect(200);
       const row = res.body.accounts[0];
       assert.strictEqual(row.name, 'Savings');
-      assert.strictEqual(row.category, 'Liability');
+      assert.strictEqual(row.category, 'Asset');
       assert.strictEqual(row.account_type, 'Ledger');
       assert.strictEqual(row.is_active, 1);
       assert.strictEqual(row.starting_balance, 0);
@@ -86,7 +86,7 @@ test('accounts API integration flow', async () => {
       const res = await agent.get('/accounts').expect(200);
       const row = res.body.accounts[0];
       assert.strictEqual(row.name, 'Savings');
-      assert.strictEqual(row.category, 'Liability');
+      assert.strictEqual(row.category, 'Asset');
       assert.strictEqual(row.account_type, 'Ledger');
       assert.strictEqual(row.is_active, 0);
       assert.strictEqual(row.starting_balance, 100.5);
