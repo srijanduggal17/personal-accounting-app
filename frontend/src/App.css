@@ -65,6 +65,147 @@
   font-size: 1.75rem;
 }
 
+.app-page-header--with-action {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.app-page-header--with-action h1 {
+  margin-bottom: 0;
+}
+
+.app-page-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+
+.app-page-header-hint {
+  font-size: 0.85rem;
+  max-width: 14rem;
+}
+
+.app-button-primary,
+.app-button-secondary {
+  font: inherit;
+  font-size: 0.9rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.app-button-primary {
+  background: var(--accent-bg);
+  color: var(--text-h);
+  border-color: var(--accent-border);
+  box-shadow: inset 0 0 0 1px var(--accent-border);
+}
+
+.app-button-primary:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+.app-button-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.app-button-secondary {
+  background: var(--social-bg);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.app-button-secondary:hover {
+  color: var(--text-h);
+}
+
+.account-modal {
+  margin: auto;
+  padding: 0;
+  max-width: min(26rem, calc(100vw - 2rem));
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+
+.account-modal::backdrop {
+  background: rgba(0, 0, 0, 0.35);
+}
+
+@media (prefers-color-scheme: dark) {
+  .account-modal::backdrop {
+    background: rgba(0, 0, 0, 0.55);
+  }
+}
+
+.account-modal-form {
+  padding: 1.25rem 1.35rem 1.35rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.account-modal-title {
+  margin: 0;
+  font-size: 1.2rem;
+  color: var(--text-h);
+}
+
+.account-modal-error {
+  margin: 0;
+}
+
+.account-modal-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.9rem;
+}
+
+.account-modal-label {
+  color: var(--text-h);
+  font-weight: 500;
+}
+
+.account-modal-field input,
+.account-modal-field select {
+  font: inherit;
+  font-size: 0.95rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-h);
+}
+
+.account-modal-checkbox {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.account-modal-checkbox input {
+  width: auto;
+}
+
+.account-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+}
+
 @media (max-width: 640px) {
   .app-shell {
     flex-direction: column;
