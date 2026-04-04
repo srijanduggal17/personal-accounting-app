@@ -187,6 +187,22 @@
   color: var(--text-h);
 }
 
+.account-modal-readonly-value {
+  font: inherit;
+  font-size: 0.95rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--social-bg);
+  color: var(--text);
+}
+
+.account-row-edit {
+  flex-shrink: 0;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.8rem;
+}
+
 .account-modal-checkbox {
   flex-direction: row;
   align-items: center;
@@ -296,14 +312,49 @@
   padding: 0.35rem 0;
 }
 
+.account-row--inactive {
+  align-items: center;
+  padding: 0.4rem 0.5rem 0.4rem 0.55rem;
+  margin: 0.1rem 0;
+  border-radius: 6px;
+  background: var(--social-bg);
+  box-shadow: inset 4px 0 0 var(--border);
+}
+
 .account-name {
   font-weight: 600;
   color: var(--text-h);
 }
 
+.account-row--inactive .account-name {
+  color: var(--text);
+}
+
+.account-row--inactive .account-balance {
+  color: var(--text);
+  opacity: 0.88;
+}
+
 .account-meta {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.5rem;
   font-size: 0.9rem;
   color: var(--text);
+}
+
+.account-inactive-pill {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  padding: 0.18rem 0.45rem;
+  border-radius: 999px;
+  line-height: 1;
+  color: var(--text-h);
+  background: var(--code-bg);
+  border: 1px solid var(--border);
 }
 
 .account-balance {

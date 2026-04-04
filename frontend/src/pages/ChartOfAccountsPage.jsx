@@ -68,16 +68,47 @@ function flattenAccountsForParent(accounts, depth = 0) {
   return out
 }
 
-function AccountNode({ account }) {
+function buildAccountIdIndex(accounts, acc = new Map()) {
+  for (const node of accounts || []) {
+    acc.set(node.id, node)
+    if (node.children?.length) {
+      buildAccountIdIndex(node.children, acc)
+    }
+  }
+  return acc
+}
+
+function parentDisplayLabel(account, accountById) {
+  if (account.parent_account_id == null) {
+    return 'None'
+  }
+  const p = accountById.get(account.parent_account_id)
+  return p?.name ?? `#${account.parent_account_id}`
+}
+
+function AccountNode({ account, accountById, onEdit }) {
   const hasChildren = account.children?.length > 0
+
+  const active = Boolean(account.is_active)
 
   return (
     <li>
-      <div className="account-row">
+      <div className={`account-row${active ? '' : ' account-row--inactive'}`}>
         <span className="account-name">{account.name}</span>
+        <button
+          type="button"
+          className="app-button-secondary account-row-edit"
+          onClick={() => onEdit(account)}
+        >
+          Edit
+        </button>
         <span className="account-meta">
           {account.account_type}
-          {account.is_active ? '' : ' · inactive'}
+          {!active && (
+            <span className="account-inactive-pill" title="This account is inactive">
+              Inactive
+            </span>
+          )}
         </span>
         <span className="account-balance">
           {account.starting_balance} ({account.starting_balance_date})
@@ -86,7 +117,12 @@ function AccountNode({ account }) {
       {hasChildren && (
         <ul className="account-children">
           {account.children.map((child) => (
-            <AccountNode key={child.id} account={child} />
+            <AccountNode
+              key={child.id}
+              account={child}
+              accountById={accountById}
+              onEdit={onEdit}
+            />
           ))}
         </ul>
       )}
@@ -124,7 +160,12 @@ export default function ChartOfAccountsPage() {
   const [submitError, setSubmitError] = useState(null)
   const [submitting, setSubmitting] = useState(false)
 
+  const [editForm, setEditForm] = useState(null)
+  const [editSubmitError, setEditSubmitError] = useState(null)
+  const [editSubmitting, setEditSubmitting] = useState(false)
+
   const dialogRef = useRef(null)
+  const editDialogRef = useRef(null)
 
   const loadAccounts = useCallback(() => {
     return fetch('/accounts')
@@ -184,6 +225,11 @@ export default function ChartOfAccountsPage() {
     [accounts],
   )
 
+  const accountById = useMemo(
+    () => buildAccountIdIndex(accounts || []),
+    [accounts],
+  )
+
   const sortedCategories = useMemo(() => {
     if (!accountTypesMap) return []
     return Object.keys(accountTypesMap).sort()
@@ -212,6 +258,40 @@ export default function ChartOfAccountsPage() {
 
   const onDialogClose = () => {
     setSubmitError(null)
+  }
+
+  const openEditModal = useCallback(
+    (account) => {
+      setEditSubmitError(null)
+      setEditForm({
+        id: account.id,
+        name: account.name,
+        category: account.category,
+        subtype: account.subtype,
+        account_type: account.account_type,
+        parentLabel: parentDisplayLabel(account, accountById),
+        is_active: Boolean(account.is_active),
+        starting_balance: String(account.starting_balance),
+        starting_balance_date: account.starting_balance_date,
+      })
+      queueMicrotask(() => editDialogRef.current?.showModal())
+    },
+    [accountById],
+  )
+
+  const closeEditModal = () => {
+    editDialogRef.current?.close()
+    setEditSubmitError(null)
+    setEditForm(null)
+  }
+
+  const onEditDialogClose = () => {
+    setEditSubmitError(null)
+    setEditForm(null)
+  }
+
+  const updateEditField = (field, value) => {
+    setEditForm((f) => (f ? { ...f, [field]: value } : f))
   }
 
   const updateField = (field, value) => {
@@ -285,6 +365,55 @@ export default function ChartOfAccountsPage() {
       })
   }
 
+  const handleEditSubmit = (e) => {
+    e.preventDefault()
+    if (!editForm) return
+    setEditSubmitError(null)
+
+    const name = editForm.name.trim()
+    if (!name) {
+      setEditSubmitError('Name is required')
+      return
+    }
+
+    const startingBalance = Number(editForm.starting_balance)
+    if (Number.isNaN(startingBalance)) {
+      setEditSubmitError('Starting balance must be a number')
+      return
+    }
+
+    const body = {
+      name,
+      is_active: editForm.is_active,
+      starting_balance: startingBalance,
+      starting_balance_date: editForm.starting_balance_date || DEFAULT_DATE,
+    }
+
+    setEditSubmitting(true)
+    fetch(`/accounts/${editForm.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}))
+        if (res.ok) {
+          closeEditModal()
+          await loadAccounts()
+          return
+        }
+        const msg =
+          typeof data.error === 'string' ? data.error : `Request failed (${res.status})`
+        setEditSubmitError(msg)
+      })
+      .catch((err) => {
+        setEditSubmitError(err.message || 'Failed to update account')
+      })
+      .finally(() => {
+        setEditSubmitting(false)
+      })
+  }
+
   const typesReady = accountTypesMap && !typesError
 
   return (
@@ -328,7 +457,12 @@ export default function ChartOfAccountsPage() {
                 <h3 className="account-chart-subtype-heading">{sec.subtype}</h3>
                 <ul className="account-tree">
                   {sec.roots.map((account) => (
-                    <AccountNode key={account.id} account={account} />
+                    <AccountNode
+                      key={account.id}
+                      account={account}
+                      accountById={accountById}
+                      onEdit={openEditModal}
+                    />
                   ))}
                 </ul>
               </div>
@@ -460,6 +594,96 @@ export default function ChartOfAccountsPage() {
             </button>
           </div>
         </form>
+      </dialog>
+
+      <dialog
+        ref={editDialogRef}
+        className="account-modal"
+        onClose={onEditDialogClose}
+        onCancel={(ev) => {
+          ev.preventDefault()
+          closeEditModal()
+        }}
+      >
+        {editForm && (
+          <form onSubmit={handleEditSubmit} className="account-modal-form">
+            <h2 className="account-modal-title">Edit account</h2>
+
+            {editSubmitError && (
+              <p className="status status-error account-modal-error" role="alert">
+                {editSubmitError}
+              </p>
+            )}
+
+            <label className="account-modal-field">
+              <span className="account-modal-label">Name</span>
+              <input
+                type="text"
+                value={editForm.name}
+                onChange={(e) => updateEditField('name', e.target.value)}
+                required
+                autoComplete="off"
+              />
+            </label>
+
+            <div className="account-modal-field">
+              <span className="account-modal-label">Category</span>
+              <div className="account-modal-readonly-value">{editForm.category}</div>
+            </div>
+
+            <div className="account-modal-field">
+              <span className="account-modal-label">Subtype</span>
+              <div className="account-modal-readonly-value">{editForm.subtype}</div>
+            </div>
+
+            <div className="account-modal-field">
+              <span className="account-modal-label">Account type</span>
+              <div className="account-modal-readonly-value">{editForm.account_type}</div>
+            </div>
+
+            <div className="account-modal-field">
+              <span className="account-modal-label">Parent</span>
+              <div className="account-modal-readonly-value">{editForm.parentLabel}</div>
+            </div>
+
+            <label className="account-modal-field account-modal-checkbox">
+              <input
+                type="checkbox"
+                checked={editForm.is_active}
+                onChange={(e) => updateEditField('is_active', e.target.checked)}
+              />
+              <span>Active</span>
+            </label>
+
+            <label className="account-modal-field">
+              <span className="account-modal-label">Starting balance</span>
+              <input
+                type="number"
+                step="any"
+                value={editForm.starting_balance}
+                onChange={(e) => updateEditField('starting_balance', e.target.value)}
+              />
+            </label>
+
+            <label className="account-modal-field">
+              <span className="account-modal-label">Starting balance date</span>
+              <input
+                type="date"
+                value={editForm.starting_balance_date}
+                onChange={(e) => updateEditField('starting_balance_date', e.target.value)}
+              />
+            </label>
+
+            <div className="account-modal-actions">
+              <button type="button" className="app-button-secondary" onClick={closeEditModal}>
+                Cancel
+              </button>
+              <button type="submit" className="app-button-primary" disabled={editSubmitting}>
+                {editSubmitting ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+          </form>
+        )}
       </dialog>
     </>
   )
