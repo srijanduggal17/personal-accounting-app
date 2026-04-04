@@ -4,9 +4,11 @@ const {
   getAccountById,
   deleteAccountById,
   updateAccountById,
+  getAccountTypesMap,
 } = require('../queries/accountsQueries');
 
 const { getComponentSchema } = require('../openapi/openapiLoader');
+const { UPDATEABLE_COLUMNS } = require('../constants/accountsConstants');
 
 function requireOpenApiValue(value, message) {
   if (value === undefined || value === null) {
@@ -16,7 +18,6 @@ function requireOpenApiValue(value, message) {
 }
 
 const accountCreateSchema = getComponentSchema('AccountCreateRequest');
-const accountUpdateSchema = getComponentSchema('AccountUpdateRequest');
 
 const CATEGORY_ENUM = requireOpenApiValue(
   accountCreateSchema?.properties?.category?.enum,
@@ -25,6 +26,11 @@ const CATEGORY_ENUM = requireOpenApiValue(
 const ACCOUNT_TYPE_ENUM = requireOpenApiValue(
   accountCreateSchema?.properties?.account_type?.enum,
   'OpenAPI schema missing: AccountCreateRequest.properties.account_type.enum',
+);
+
+const SUBTYPE_ENUM = requireOpenApiValue(
+  accountCreateSchema?.properties?.subtype?.enum,
+  'OpenAPI schema missing: AccountCreateRequest.properties.subtype.enum',
 );
 
 const DEFAULT_ACCOUNT_TYPE = requireOpenApiValue(
@@ -60,7 +66,8 @@ const STARTING_BALANCE_DATE_RE = new RegExp(STARTING_BALANCE_DATE_PATTERN);
 
 const CATEGORIES = new Set(CATEGORY_ENUM);
 const ACCOUNT_TYPES = new Set(ACCOUNT_TYPE_ENUM);
-const UPDATEABLE_FIELDS = new Set(Object.keys(accountUpdateSchema?.properties ?? {}));
+const SUBTYPES = new Set(SUBTYPE_ENUM);
+const UPDATEABLE_FIELDS = UPDATEABLE_COLUMNS;
 const IS_ACTIVE_INTEGERS = new Set(IS_ACTIVE_INTEGER_ENUM);
 
 // The handler logic maps `true` -> 1 and `false` -> 0.
@@ -70,6 +77,7 @@ if (!IS_ACTIVE_INTEGERS.has(0) || !IS_ACTIVE_INTEGERS.has(1)) {
 
 const CATEGORY_ENUM_TEXT = Array.from(CATEGORIES).join(', ');
 const ACCOUNT_TYPE_ENUM_TEXT = Array.from(ACCOUNT_TYPES).join(', ');
+const SUBTYPE_ENUM_TEXT = Array.from(SUBTYPES).join(', ');
 const IS_ACTIVE_INTEGERS_TEXT = Array.from(IS_ACTIVE_INTEGERS)
   .sort((a, b) => a - b)
   .join(', ');
@@ -132,6 +140,13 @@ function validateAndBuildRow(body) {
     };
   }
 
+  let subtype = body.subtype;
+  if (typeof subtype !== 'string' || !SUBTYPES.has(subtype)) {
+    return { error: `subtype is required and must be one of: ${SUBTYPE_ENUM_TEXT}` };
+  }
+
+  // TODO: check subtype against map
+
   let accountType = body.account_type;
   if (accountType === undefined) {
     accountType = DEFAULT_ACCOUNT_TYPE;
@@ -170,6 +185,7 @@ function validateAndBuildRow(body) {
     row: {
       name,
       category,
+      subtype,
       account_type: accountType,
       parent_account_id: parentAccountId,
       is_active: isActive,
@@ -339,6 +355,13 @@ function validateUpdatePatch(body) {
   return { patch };
 }
 
+function createGetAccountTypesHandler(db) {
+  return function getAccountTypesHandler(_req, res) {
+    const types = getAccountTypesMap(db);
+    return res.json({ types });
+  };
+}
+
 function createUpdateAccountHandler(db) {
   return function updateAccountHandler(req, res) {
     const parsed = parseAccountIdParam(req);
@@ -371,6 +394,7 @@ function createUpdateAccountHandler(db) {
 module.exports = {
   createInsertAccountHandler,
   createListAccountsHandler,
+  createGetAccountTypesHandler,
   createDeleteAccountHandler,
   createUpdateAccountHandler,
 };

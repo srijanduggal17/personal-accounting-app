@@ -1,6 +1,8 @@
+const { UPDATEABLE_COLUMNS } = require('../constants/accountsConstants');
+
 const INSERT_ACCOUNT = `
-INSERT INTO accounts (name, category, account_type, parent_account_id, is_active, starting_balance, starting_balance_date)
-VALUES (?, ?, ?, ?, ?, ?, ?)
+INSERT INTO accounts (name, category, subtype, account_type, parent_account_id, is_active, starting_balance, starting_balance_date)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 `;
 
 const SELECT_BY_ID = `
@@ -8,6 +10,7 @@ SELECT
   id,
   name,
   category,
+  subtype,
   account_type,
   parent_account_id,
   is_active,
@@ -39,19 +42,18 @@ function deleteAccountById(db, id) {
   return stmt.run(id);
 }
 
-const UPDATEABLE_COLUMNS = new Set([
-  'name',
-  'category',
-  'is_active',
-  'starting_balance',
-  'starting_balance_date',
-]);
-
 function updateAccountById(db, id, patch) {
   const keys = Object.keys(patch);
   if (keys.length === 0) {
     return { changes: 0 };
   }
+
+  for (const k of keys) {
+    if (!UPDATEABLE_COLUMNS.has(k)) {
+      throw new Error(`Attempted to update disallowed field: ${k}`);
+    }
+  }
+
   const sets = keys.map((k) => `${k} = @${k}`);
   sets.push("updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')");
   const sql = `UPDATE accounts SET ${sets.join(', ')} WHERE id = @id`;
@@ -64,6 +66,7 @@ function insertAccount(db, row) {
   const info = stmt.run(
     row.name,
     row.category,
+    row.subtype,
     row.account_type,
     row.parent_account_id,
     row.is_active,
@@ -74,11 +77,29 @@ function insertAccount(db, row) {
   return getAccountById(db, id);
 }
 
+const SELECT_ACCOUNT_TYPES_MAP = `
+SELECT
+  account_category AS category,
+  subtype
+FROM account_category_subtypes
+ORDER BY account_category, subtype
+`;
+
+function getAccountTypesMap(db) {
+  const rows = db.prepare(SELECT_ACCOUNT_TYPES_MAP).all();
+  const types = {};
+  for (const row of rows) {
+    if (!types[row.category]) types[row.category] = [];
+    types[row.category].push(row.subtype);
+  }
+  return types;
+}
+
 module.exports = {
   insertAccount,
   getAccountById,
   getAllAccounts,
   deleteAccountById,
   updateAccountById,
-  UPDATEABLE_COLUMNS,
+  getAccountTypesMap,
 };

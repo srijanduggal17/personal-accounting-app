@@ -5,7 +5,7 @@ const assert = require('node:assert');
 const { test } = require('node:test');
 const Database = require('better-sqlite3');
 const request = require('supertest');
-const { createApp } = require('../../src/app');
+const { loadOpenApiSpec } = require('../../src/openapi/openapiLoader');
 
 const SCHEMA_PATH = path.join(__dirname, '../../../database/schema_v1.sql');
 
@@ -20,6 +20,8 @@ function openFreshDatabase() {
 }
 
 test('accounts API integration flow', async () => {
+  await loadOpenApiSpec();
+  const { createApp } = require('../../src/app');
   const { db, dir } = openFreshDatabase();
   try {
     const app = createApp(db);
@@ -30,9 +32,33 @@ test('accounts API integration flow', async () => {
       assert.deepStrictEqual(res.body, { accounts: [] });
     }
 
+    {
+      const res = await agent.get('/accounts/types').expect(200);
+      assert.deepStrictEqual(res.body.types.Asset, [
+        'Cash + Bank',
+        'Depreciation and Amortization',
+        'Other Long-Term Asset',
+        'Other Short-Term Asset',
+        'Property, Plant, Equipment',
+      ]);
+      assert.deepStrictEqual(res.body.types.Liability, [
+        'Credit Card',
+        'Loan + Line of Credit',
+        'Other Long-Term Liability',
+        'Other Short-Term Liability',
+      ]);
+      assert.deepStrictEqual(res.body.types.Equity, [
+        'Owner Contributions/Drawings',
+        'Retained Earnings',
+      ]);
+      assert.deepStrictEqual(res.body.types.Revenue, ['Revenue']);
+      assert.deepStrictEqual(res.body.types.Expense, ['Expense']);
+    }
+
     const createBody = {
       name: 'Checking',
       category: 'Asset',
+      subtype: 'Cash + Bank',
     };
 
     const created = await agent.post('/accounts').send(createBody).expect(201);
@@ -40,6 +66,7 @@ test('accounts API integration flow', async () => {
     assert.strictEqual(typeof accountId, 'number');
     assert.strictEqual(created.body.name, 'Checking');
     assert.strictEqual(created.body.category, 'Asset');
+    assert.strictEqual(created.body.subtype, 'Cash + Bank');
 
     {
       const res = await agent.get('/accounts').expect(200);
@@ -48,6 +75,7 @@ test('accounts API integration flow', async () => {
       assert.strictEqual(row.id, accountId);
       assert.strictEqual(row.name, 'Checking');
       assert.strictEqual(row.category, 'Asset');
+      assert.strictEqual(row.subtype, 'Cash + Bank');
       assert.strictEqual(row.account_type, 'Ledger');
       assert.strictEqual(row.parent_account_id, null);
       assert.strictEqual(row.is_active, 1);
@@ -67,6 +95,7 @@ test('accounts API integration flow', async () => {
       const row = res.body.accounts[0];
       assert.strictEqual(row.name, 'Savings');
       assert.strictEqual(row.category, 'Asset');
+      assert.strictEqual(row.subtype, 'Cash + Bank');
       assert.strictEqual(row.account_type, 'Ledger');
       assert.strictEqual(row.is_active, 1);
       assert.strictEqual(row.starting_balance, 0);
@@ -87,6 +116,7 @@ test('accounts API integration flow', async () => {
       const row = res.body.accounts[0];
       assert.strictEqual(row.name, 'Savings');
       assert.strictEqual(row.category, 'Asset');
+      assert.strictEqual(row.subtype, 'Cash + Bank');
       assert.strictEqual(row.account_type, 'Ledger');
       assert.strictEqual(row.is_active, 0);
       assert.strictEqual(row.starting_balance, 100.5);
