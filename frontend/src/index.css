@@ -55,14 +55,11 @@ body {
 }
 
 #root {
-  max-width: 960px;
-  margin: 0 auto;
-  text-align: left;
-  border-inline: 1px solid var(--border);
   min-height: 100svh;
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
+  text-align: left;
 }
 
 h1,
