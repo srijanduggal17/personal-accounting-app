@@ -126,6 +126,40 @@
   color: var(--text-h);
 }
 
+.app-button-danger {
+  font: inherit;
+  font-size: 0.9rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid rgba(220, 38, 38, 0.4);
+  background: rgba(220, 38, 38, 0.09);
+  color: #b91c1c;
+}
+
+.app-button-danger:hover:not(:disabled) {
+  background: rgba(220, 38, 38, 0.16);
+  color: #991b1b;
+}
+
+.app-button-danger:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+@media (prefers-color-scheme: dark) {
+  .app-button-danger {
+    border-color: rgba(248, 113, 113, 0.45);
+    background: rgba(248, 113, 113, 0.12);
+    color: #fca5a5;
+  }
+
+  .app-button-danger:hover:not(:disabled) {
+    background: rgba(248, 113, 113, 0.2);
+    color: #fecaca;
+  }
+}
+
 .account-modal {
   margin: auto;
   padding: 0;
@@ -197,10 +231,24 @@
   color: var(--text);
 }
 
-.account-row-edit {
+.account-row-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
   flex-shrink: 0;
+}
+
+.account-row-actions button {
   padding: 0.15rem 0.45rem;
   font-size: 0.8rem;
+}
+
+.account-modal-body-text {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: var(--text);
 }
 
 .account-modal-checkbox {

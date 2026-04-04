@@ -86,7 +86,7 @@ function parentDisplayLabel(account, accountById) {
   return p?.name ?? `#${account.parent_account_id}`
 }
 
-function AccountNode({ account, accountById, onEdit }) {
+function AccountNode({ account, accountById, onEdit, onDeleteRequest }) {
   const hasChildren = account.children?.length > 0
 
   const active = Boolean(account.is_active)
@@ -95,13 +95,28 @@ function AccountNode({ account, accountById, onEdit }) {
     <li>
       <div className={`account-row${active ? '' : ' account-row--inactive'}`}>
         <span className="account-name">{account.name}</span>
-        <button
-          type="button"
-          className="app-button-secondary account-row-edit"
-          onClick={() => onEdit(account)}
-        >
-          Edit
-        </button>
+        <span className="account-row-actions">
+          <button
+            type="button"
+            className="app-button-secondary account-row-edit"
+            onClick={() => onEdit(account)}
+          >
+            Edit
+          </button>
+          <button
+            type="button"
+            className="app-button-danger account-row-edit"
+            disabled={hasChildren}
+            title={
+              hasChildren
+                ? 'Delete or reassign sub-accounts before deleting this one'
+                : `Delete “${account.name}”`
+            }
+            onClick={() => onDeleteRequest(account)}
+          >
+            Delete
+          </button>
+        </span>
         <span className="account-meta">
           {account.account_type}
           {!active && (
@@ -122,6 +137,7 @@ function AccountNode({ account, accountById, onEdit }) {
               account={child}
               accountById={accountById}
               onEdit={onEdit}
+              onDeleteRequest={onDeleteRequest}
             />
           ))}
         </ul>
@@ -166,6 +182,11 @@ export default function ChartOfAccountsPage() {
 
   const dialogRef = useRef(null)
   const editDialogRef = useRef(null)
+  const deleteDialogRef = useRef(null)
+
+  const [pendingDelete, setPendingDelete] = useState(null)
+  const [deleteError, setDeleteError] = useState(null)
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false)
 
   const loadAccounts = useCallback(() => {
     return fetch('/accounts')
@@ -292,6 +313,50 @@ export default function ChartOfAccountsPage() {
 
   const updateEditField = (field, value) => {
     setEditForm((f) => (f ? { ...f, [field]: value } : f))
+  }
+
+  const openDeleteConfirm = useCallback((account) => {
+    if (account.children?.length) {
+      return
+    }
+    setDeleteError(null)
+    setPendingDelete(account)
+    queueMicrotask(() => deleteDialogRef.current?.showModal())
+  }, [])
+
+  const closeDeleteDialog = () => {
+    deleteDialogRef.current?.close()
+    setPendingDelete(null)
+    setDeleteError(null)
+  }
+
+  const onDeleteDialogClose = () => {
+    setPendingDelete(null)
+    setDeleteError(null)
+  }
+
+  const confirmDeleteAccount = () => {
+    if (!pendingDelete) return
+    setDeleteError(null)
+    setDeleteSubmitting(true)
+    fetch(`/accounts/${pendingDelete.id}`, { method: 'DELETE' })
+      .then(async (res) => {
+        if (res.status === 204) {
+          closeDeleteDialog()
+          await loadAccounts()
+          return
+        }
+        const data = await res.json().catch(() => ({}))
+        const msg =
+          typeof data.error === 'string' ? data.error : `Request failed (${res.status})`
+        setDeleteError(msg)
+      })
+      .catch((err) => {
+        setDeleteError(err.message || 'Failed to delete account')
+      })
+      .finally(() => {
+        setDeleteSubmitting(false)
+      })
   }
 
   const updateField = (field, value) => {
@@ -462,6 +527,7 @@ export default function ChartOfAccountsPage() {
                       account={account}
                       accountById={accountById}
                       onEdit={openEditModal}
+                      onDeleteRequest={openDeleteConfirm}
                     />
                   ))}
                 </ul>
@@ -683,6 +749,43 @@ export default function ChartOfAccountsPage() {
               </button>
             </div>
           </form>
+        )}
+      </dialog>
+
+      <dialog
+        ref={deleteDialogRef}
+        className="account-modal"
+        onClose={onDeleteDialogClose}
+        onCancel={(ev) => {
+          ev.preventDefault()
+          closeDeleteDialog()
+        }}
+      >
+        {pendingDelete && (
+          <div className="account-modal-form">
+            <h2 className="account-modal-title">Delete account?</h2>
+            <p className="account-modal-body-text">
+              Permanently remove <strong>{pendingDelete.name}</strong>? This cannot be undone.
+            </p>
+            {deleteError && (
+              <p className="status status-error account-modal-error" role="alert">
+                {deleteError}
+              </p>
+            )}
+            <div className="account-modal-actions">
+              <button type="button" className="app-button-secondary" onClick={closeDeleteDialog}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="app-button-danger"
+                disabled={deleteSubmitting}
+                onClick={confirmDeleteAccount}
+              >
+                {deleteSubmitting ? 'Deleting…' : 'Delete'}
+              </button>
+            </div>
+          </div>
         )}
       </dialog>
     </>
