@@ -248,6 +248,33 @@
   }
 }
 
+.account-chart-sections {
+  margin-top: 0.5rem;
+}
+
+.account-chart-type-heading {
+  margin: 1.25rem 0 0.5rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-h);
+  letter-spacing: 0.02em;
+}
+
+.account-chart-sections .account-chart-type-heading:first-child {
+  margin-top: 0;
+}
+
+.account-chart-subtype-block {
+  margin-bottom: 1rem;
+}
+
+.account-chart-subtype-heading {
+  margin: 0.75rem 0 0.35rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
 .account-tree,
 .account-children {
   list-style: none;

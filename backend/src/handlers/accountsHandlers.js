@@ -159,6 +159,8 @@ function validateAndBuildRow(body) {
     return { error: 'parent_account_id must be an integer or null' };
   }
 
+  // TODO: Assert that parent account is same type and subtype as current account
+
   const isActive = normalizeIsActive(body.is_active);
   if (isActive === undefined) {
     return { error: 'is_active must be 0, 1, true, or false' };

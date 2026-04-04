@@ -1,4 +1,60 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+
+/** Ordered list of { category, subtype, roots } for chart display (roots only). */
+function buildGroupedAccountSections(roots, accountTypesMap) {
+  if (!roots?.length) return []
+
+  const byCat = new Map()
+  for (const r of roots) {
+    const cat = r.category
+    const sub = r.subtype
+    if (!byCat.has(cat)) byCat.set(cat, new Map())
+    const sm = byCat.get(cat)
+    if (!sm.has(sub)) sm.set(sub, [])
+    sm.get(sub).push(r)
+  }
+
+  const categoriesPresent = new Set(roots.map((r) => r.category))
+  let categoryOrder
+  if (accountTypesMap) {
+    const fromMap = Object.keys(accountTypesMap)
+      .sort()
+      .filter((c) => categoriesPresent.has(c))
+    const extras = [...categoriesPresent].filter((c) => !fromMap.includes(c)).sort()
+    categoryOrder = [...fromMap, ...extras]
+  } else {
+    categoryOrder = [...categoriesPresent].sort()
+  }
+
+  const sections = []
+  for (const cat of categoryOrder) {
+    const subMap = byCat.get(cat)
+    if (!subMap) continue
+
+    const used = new Set()
+    const orderedSubtypes = []
+    if (accountTypesMap?.[cat]) {
+      for (const sub of accountTypesMap[cat]) {
+        const list = subMap.get(sub)
+        if (list?.length) {
+          orderedSubtypes.push(sub)
+          used.add(sub)
+        }
+      }
+    }
+    for (const sub of [...subMap.keys()].sort()) {
+      if (!used.has(sub) && subMap.get(sub).length) {
+        orderedSubtypes.push(sub)
+      }
+    }
+
+    for (const sub of orderedSubtypes) {
+      const list = [...subMap.get(sub)].sort((a, b) => a.id - b.id)
+      sections.push({ category: cat, subtype: sub, roots: list })
+    }
+  }
+  return sections
+}
 
 function flattenAccountsForParent(accounts, depth = 0) {
   const out = []
@@ -20,7 +76,7 @@ function AccountNode({ account }) {
       <div className="account-row">
         <span className="account-name">{account.name}</span>
         <span className="account-meta">
-          {account.category} · {account.account_type}
+          {account.account_type}
           {account.is_active ? '' : ' · inactive'}
         </span>
         <span className="account-balance">
@@ -137,6 +193,11 @@ export default function ChartOfAccountsPage() {
     if (!accountTypesMap || !form.category) return []
     return accountTypesMap[form.category] || []
   }, [accountTypesMap, form.category])
+
+  const groupedSections = useMemo(
+    () => buildGroupedAccountSections(accounts || [], accountTypesMap),
+    [accounts, accountTypesMap],
+  )
 
   const openModal = () => {
     setSubmitError(null)
@@ -257,11 +318,23 @@ export default function ChartOfAccountsPage() {
         <p className="status">No accounts yet.</p>
       )}
       {!loading && !error && accounts?.length > 0 && (
-        <ul className="account-tree">
-          {accounts.map((account) => (
-            <AccountNode key={account.id} account={account} />
+        <div className="account-chart-sections">
+          {groupedSections.map((sec, i) => (
+            <Fragment key={`${sec.category}::${sec.subtype}`}>
+              {(i === 0 || groupedSections[i - 1].category !== sec.category) && (
+                <h2 className="account-chart-type-heading">{sec.category}</h2>
+              )}
+              <div className="account-chart-subtype-block">
+                <h3 className="account-chart-subtype-heading">{sec.subtype}</h3>
+                <ul className="account-tree">
+                  {sec.roots.map((account) => (
+                    <AccountNode key={account.id} account={account} />
+                  ))}
+                </ul>
+              </div>
+            </Fragment>
           ))}
-        </ul>
+        </div>
       )}
 
       <dialog
